@@ -18,7 +18,7 @@
   "author": "Aragon Project",
   "license": "AGPL-3.0-or-later",
   "engines": {
-    "node": ">=18"
+    "node": "18.16.1"
   },
   "dependencies": {
     "@aragon/sdk-client": "^1.22.1"
