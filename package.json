@@ -21,7 +21,8 @@
     "node": "18.16.1"
   },
   "dependencies": {
-    "@aragon/sdk-client": "^1.22.1"
+    "@aragon/sdk-client": "^1.22.1",
+    "@aragon/sdk-client-common": "^1.14.1"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.1.1",
@@ -31,6 +32,7 @@
     "@web-std/fetch": "^4.2.1",
     "@web-std/file": "^3.0.3",
     "@web-std/form-data": "^3.1.0",
+    "dotenv": "16.4.1",
     "eslint": "^8.41.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-import": "^2.29.1",
