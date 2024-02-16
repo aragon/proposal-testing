@@ -1,17 +1,22 @@
-import {getClient} from './client';
 import {
-  TokenVotingClient,
-  ContextParams,
-  Context,
-  CreateMajorityVotingProposalParams,
-  VoteValues,
-  ProposalCreationSteps,
-} from '@aragon/sdk-client';
+  MULTISIG_CREATE_PROPOSAL_FLAG,
+  MULTISIG_PLUGIN_ADDRESS,
+  MULTISIG_PREPARE_UPDATE_FLAG,
+  TOKEN_VOTING_CHECK_PROPOSAL_UPDATE_FLAG,
+  TOKEN_VOTING_CREATE_PROPOSAL_FLAG,
+  TOKEN_VOTING_PLUGIN_ADDRESS,
+} from './constants';
 import {
-  LIVE_CONTRACTS,
-  PermissionIds,
-  PermissionOperationType,
-} from '@aragon/sdk-client-common';
+  createMultisigLegitUpdateProposal,
+  prepareMultisigPluginUpdate,
+} from './multisig';
+import {
+  createTokenVotingLegitUpdateProposal,
+  prepareTokenVotingPluginUpdate,
+} from './tokenVoting';
+import {contracts} from '@aragon/osx-commons-configs';
+import {Context, ApplyUpdateParams} from '@aragon/sdk-client';
+import {LIVE_CONTRACTS} from '@aragon/sdk-client-common';
 import {fetch} from '@web-std/fetch';
 import {Blob, File} from '@web-std/file';
 import {FormData} from '@web-std/form-data';
@@ -33,94 +38,67 @@ export const TOKEN_VOTING_PLUGIN =
   '0xa03BF96689b988cC9a9489AC5DD7ABA6900064b7'.toLowerCase();
 export const PSP =
   LIVE_CONTRACTS['1.0.0'].goerli.pluginSetupProcessorAddress.toLowerCase();
-const TOKEN_VOTING_REPO =
-  '0xFCc843C48BD44e5dA5976a2f2d85772D59C5959E'.toLowerCase();
 
 // ROOT_PERMISSION_ID     0x815fe80e4b37c8582a3b773d1d7071f983eacfd56b5965db654f3087c25ada33
 // UPGRADE_PERMISSION_ID  0x821b6e3a557148015a918c89e5d092e878a69854a2d1a410635f771bd5a8a3f5
 
+export const PROPOSAL_ID = '0xfcb22129221d6316f7b18d85b0792edb8b6debf4_0x1';
+
 main().catch(console.error);
+
 async function main() {
-  const contextParams: ContextParams = {
+  const ctx = new Context({
     signer: new Wallet(process.env.ETH_KEY!),
     network: 'goerli',
     web3Providers: 'https://ethereum-goerli.publicnode.com',
+    graphqlNodes: [
+      {
+        url: 'https://subgraph.satsuma-prod.com/qHR2wGfc5RLi6/aragon/osx-goerli/version/v1.4.0/api',
+      },
+    ],
+  });
+  // Default params given by the prepareMultisigPluginUpdate function
+  let applyUpdateParams: ApplyUpdateParams = {
+    versionTag: {
+      build: 2,
+      release: 1,
+    },
+    pluginRepo: contracts.goerli['v1.3.0']!.MultisigRepoProxy.address,
+    pluginAddress: MULTISIG_PLUGIN_ADDRESS,
+    permissions: [],
+    helpers: [],
+    initData: new Uint8Array(),
   };
-  const context = new Context(contextParams);
-  const client = getClient(context);
-  const tokenVotingClient: TokenVotingClient = new TokenVotingClient(context);
-
-  //const id = '0xa03bf96689b988cc9a9489ac5dd7aba6900064b7_0x1e';
-  //console.log(await client.methods.isDaoUpdateProposal(id));
-  //console.log(await client.methods.isDaoUpdateProposalValid(id));
-  //console.log(await client.methods.isPluginUpdateProposal(id));
-  //console.log(await client.methods.isPluginUpdateProposalValid(id));
-
-  // Create a TokenVoting client.
-
-  const proposalMetadata = {
-    title: 'Legit proposal Attempt 1',
-    description: 'A legit proposal',
-    summary: 'Use own function',
-    resources: [],
-  };
-  const metadataUri: string = await tokenVotingClient.methods.pinMetadata(
-    proposalMetadata
-  );
-
-  const regularActions = client.encoding.applyUpdateAndPermissionsActionBlock(
-    DAO,
-    {
-      versionTag: {build: 1, release: 2},
-      initData: new Uint8Array(),
-      pluginRepo: TOKEN_VOTING_REPO,
-      pluginAddress: TOKEN_VOTING_PLUGIN,
-      permissions: [
-        {
-          operation: PermissionOperationType.GRANT,
-          where: DAO,
-          who: PSP,
-          //condition?: string,
-          permissionId: PermissionIds.UPGRADE_PLUGIN_PERMISSION_ID,
-        },
-      ],
-      helpers: [],
-    }
-  );
-  console.log(regularActions);
-
-  //const legitProposalActions = legitProposal(client, [
-  //  'grantUpgrade',
-  //  'grantRoot',
-  //  'applyUpdate',
-  //  'revokeRoot',
-  //  'revokeUpgrade',
-  //]);
-
-  const proposalParams: CreateMajorityVotingProposalParams = {
-    pluginAddress: TOKEN_VOTING_PLUGIN,
-    metadataUri,
-    endDate: new Date(2024, 12, 1),
-    actions: regularActions, //legitProposalActions,
-    executeOnPass: false,
-    creatorVote: VoteValues.NO, // Vote NO to not accidentally loose the test DAO 1.0.0 by upgrading it
-  };
-
-  // Creates a proposal using the token voting governance mechanism, which executes with the parameters set in the configAction object.
-  const steps = tokenVotingClient.methods.createProposal(proposalParams);
-
-  for await (const step of steps) {
-    try {
-      switch (step.key) {
-        case ProposalCreationSteps.CREATING:
-          console.log(step.txHash);
-          break;
-        case ProposalCreationSteps.DONE:
-          console.log(step.proposalId);
-          break;
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  // await checkProposal(client, PROPOSAL_ID);
+  if (MULTISIG_PREPARE_UPDATE_FLAG) {
+    applyUpdateParams = await prepareMultisigPluginUpdate(ctx);
   }
+  let multisigProposalId = '';
+  if (MULTISIG_CREATE_PROPOSAL_FLAG) {
+    multisigProposalId = await createMultisigLegitUpdateProposal(
+      ctx,
+      applyUpdateParams
+    );
+  }
+  // Default params given by the prepareTokenVotingPluginUpdate function
+  applyUpdateParams = {
+    versionTag: {release: 1, build: 2},
+    pluginRepo: contracts.goerli['v1.3.0']!.TokenVotingRepoProxy.address,
+    pluginAddress: TOKEN_VOTING_PLUGIN_ADDRESS,
+    permissions: [],
+    helpers: [],
+    initData: new Uint8Array(),
+  };
+  if (TOKEN_VOTING_CHECK_PROPOSAL_UPDATE_FLAG) {
+    applyUpdateParams = await prepareTokenVotingPluginUpdate(ctx);
+  }
+
+  let tokenVotingProposalId = '';
+  if (TOKEN_VOTING_CREATE_PROPOSAL_FLAG) {
+    tokenVotingProposalId = await createTokenVotingLegitUpdateProposal(
+      ctx,
+      applyUpdateParams
+    );
+  }
+  console.log('tokenVotingProposalId', tokenVotingProposalId);
 }

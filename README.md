@@ -2,6 +2,10 @@
 
 This template provides all the necessary configuration for running a NodeJs project with Typescript. The template uses the `@aragon/sdk-client` package to interact with Aragon Osx framework and it is configured so it does not require any additional packages to run.
 
+## Test for plugin upgrade
+
+This is a test for the plugin upgrade. Change the values in `constants.ts` to configure the behavior of the script.
+
 ## Usage
 
 Check that you have the correct version of Node.js and npm installed:
